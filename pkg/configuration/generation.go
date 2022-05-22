@@ -137,65 +137,35 @@ func getLeafConfigHead(conf *LeafCertificateConfiguration) string {
 		hasDomainNames := len(conf.SubjectAlternativeName.DNSNames) != 0
 		hasEmailAddresses := len(conf.SubjectAlternativeName.EmailAddresses) != 0
 		hasIpAddresses := len(conf.SubjectAlternativeName.IPAddresses) != 0
-		hasUris := len(conf.SubjectAlternativeName.URIs) != 0
-		hasDirectoryNames := len(conf.SubjectAlternativeName.DirectoryNames) != 0
-		hasRegisteredIds := len(conf.SubjectAlternativeName.RegisteredIDs) != 0
-		hasOtherNames := len(conf.SubjectAlternativeName.OtherNames) != 0
 
-		if hasDomainNames || hasEmailAddresses || hasIpAddresses || hasUris || hasDirectoryNames || hasRegisteredIds || hasOtherNames {
-			if conf.HasCriticalSubjectAltNames {
-				configFile += "subjectAltName = critical, @subject_alt_names\n\n[subject_alt_names]\n"
-			} else {
-				configFile += "subjectAltName = @subject_alt_names\n\n[subject_alt_names]\n"
+		if !(hasDomainNames || hasEmailAddresses || hasIpAddresses) {
+			return configFile
+		}
+
+		if conf.HasCriticalSubjectAltNames {
+			configFile += "subjectAltName = critical, @subject_alt_names\n\n[subject_alt_names]\n"
+		} else {
+			configFile += "subjectAltName = @subject_alt_names\n\n[subject_alt_names]\n"
+		}
+
+		if hasDomainNames {
+			// Append all DNS names like this: DNS.index = value\n
+			for i, dnsName := range conf.SubjectAlternativeName.DNSNames {
+				configFile += fmt.Sprintf("DNS.%d = %s\n", i, dnsName)
 			}
+		}
 
-			if hasDomainNames {
-				// Append all DNS names like this: DNS.index = value\n
-				for i, dnsName := range conf.SubjectAlternativeName.DNSNames {
-					configFile += fmt.Sprintf("DNS.%d = %s\n", i, dnsName)
-				}
+		if hasEmailAddresses {
+			// Append all email addresses like this: Email.index = value\n
+			for i, emailAddress := range conf.SubjectAlternativeName.EmailAddresses {
+				configFile += fmt.Sprintf("Email.%d = %s\n", i, emailAddress)
 			}
+		}
 
-			if hasEmailAddresses {
-				// Append all email addresses like this: Email.index = value\n
-				for i, emailAddress := range conf.SubjectAlternativeName.EmailAddresses {
-					configFile += fmt.Sprintf("Email.%d = %s\n", i, emailAddress)
-				}
-			}
-
-			if hasIpAddresses {
-				// Append all IP addresses like this: IP.index = value\n
-				for i, ipAddress := range conf.SubjectAlternativeName.IPAddresses {
-					configFile += fmt.Sprintf("IP.%d = %s\n", i, ipAddress)
-				}
-			}
-
-			if hasUris {
-				// Append all URIs like this: URI.index = value\n
-				for i, uri := range conf.SubjectAlternativeName.URIs {
-					configFile += fmt.Sprintf("URI.%d = %s\n", i, uri)
-				}
-			}
-
-			if hasDirectoryNames {
-				// Append all directory names like this: Dir.index = value\n
-				for i, directoryName := range conf.SubjectAlternativeName.DirectoryNames {
-					configFile += fmt.Sprintf("Dir.%d = %s\n", i, directoryName)
-				}
-			}
-
-			if hasRegisteredIds {
-				// Append all registered IDs like this: RegisteredID.index = value\n
-				for i, registeredId := range conf.SubjectAlternativeName.RegisteredIDs {
-					configFile += fmt.Sprintf("RegisteredID.%d = %s\n", i, registeredId)
-				}
-			}
-
-			if hasOtherNames {
-				// Append all other names like this: OtherName.index = value\n
-				for i, otherName := range conf.SubjectAlternativeName.OtherNames {
-					configFile += fmt.Sprintf("OtherName.%d = %s\n", i, otherName)
-				}
+		if hasIpAddresses {
+			// Append all IP addresses like this: IP.index = value\n
+			for i, ipAddress := range conf.SubjectAlternativeName.IPAddresses {
+				configFile += fmt.Sprintf("IP.%d = %s\n", i, ipAddress)
 			}
 		}
 	}
@@ -298,7 +268,7 @@ func GenerateLeafCertificateConfigurationFileIfNotExists(ca *LeafCertificate) er
 	}
 
 	// Format the configuration file path
-	configFilePath := fmt.Sprintf("%s/bin/mfdlabs-all-authority-%s.conf", path, ca.LeafCertificateName)
+	configFilePath := fmt.Sprintf("%s/bin/%s.conf", path, ca.LeafCertificateName)
 	return generateLeafCertConfigurationFileIfNotExists(configFilePath, ca.OverwriteExistingConfiguration, ca.Configuration)
 }
 
@@ -326,7 +296,7 @@ func GenerateIntermediateCertificateConfigurationFileIfNotExists(ca *Intermediat
 	}
 
 	// Format the configuration file path
-	configFilePath := fmt.Sprintf("%s/bin/mfdlabs-ca-%s.conf", path, ca.IntermediateCertificateAuthorityName)
+	configFilePath := fmt.Sprintf("%s/bin/ca-%s.conf", path, ca.IntermediateCertificateAuthorityName)
 	return generateCaConfigurationFileIfNotExists(configFilePath, ca.OverwriteExistingConfiguration, ca.Configuration)
 }
 
@@ -339,6 +309,6 @@ func GenerateRootCertificateConfigurationFileIfNotExists(ca *RootCertificateAuth
 	}
 
 	// Format the configuration file path
-	configFilePath := fmt.Sprintf("%s/bin/mfdlabs-root-ca-%s.conf", path, ca.RootCertificateName)
+	configFilePath := fmt.Sprintf("%s/bin/root-ca-%s.conf", path, ca.RootCertificateName)
 	return generateCaConfigurationFileIfNotExists(configFilePath, ca.OverwriteExistingConfiguration, ca.Configuration)
 }

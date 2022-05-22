@@ -25,8 +25,11 @@ type RootCertificateAuthority struct {
 	// The password for the pkcs12 pfx to generate.
 	RootCertificatePfxPassword string `json:"pfxPassword" yaml:"pfx_password"`
 
-	// Determines if for this generation, this root CA should load a configuration file, or if it should prompt the generation parameters from openssl
-	HasExtensionFile bool `json:"hasExtensionFile" yaml:"has_extension_file"`
+	// The private key size to generate.
+	PrivateKeySize int `json:"privateKeySize" yaml:"private_key_size"`
+
+	// The validity period of the certificate to generate. This is in days.
+	ValidityPeriod int `json:"validityPeriod" yaml:"validity_period"`
 
 	// Determines if this CA should be added to the trusted root certificate authority store (linux)
 	ShouldInsertIntoTrustedStore bool `json:"shouldInsertIntoTrustedStore" yaml:"should_insert_into_trusted_store"`
@@ -63,6 +66,12 @@ type IntermediateCertificateAuthority struct {
 
 	// The password for the pkcs12 pfx to generate.
 	IntermediateCertificateAuthorityPfxPassword string `json:"pfxPassword" yaml:"pfx_password"`
+
+	// The private key size to generate.
+	PrivateKeySize int `json:"privateKeySize" yaml:"private_key_size"`
+
+	// The validity period of the certificate to generate. This is in days.
+	ValidityPeriod int `json:"validityPeriod" yaml:"validity_period"`
 
 	// Determines if this CA should be added to the trusted root certificate authority store (linux)
 	ShouldInsertIntoTrustedStore bool `json:"shouldInsertIntoTrustedStore" yaml:"should_insert_into_trusted_store"`
@@ -102,6 +111,12 @@ type LeafCertificate struct {
 
 	// The password for the pkcs12 pfx to generate.
 	LeafCertificatePfxPassword string `json:"pfxPassword" yaml:"pfx_password"`
+
+	// The private key size to generate.
+	PrivateKeySize int `json:"privateKeySize" yaml:"private_key_size"`
+
+	// The validity period of the certificate to generate. This is in days.
+	ValidityPeriod int `json:"validityPeriod" yaml:"validity_period"`
 
 	// Determines if we should generate DH Parameters for this certificate
 	GenerateDHParameters bool `json:"generateDHParam" yaml:"generate_dhparam"`
@@ -157,10 +172,10 @@ type BaseCertificateConfiguration struct {
 	BasicConstraints []string `json:"basicConstraints" yaml:"basic_constraints"`
 
 	// An array of key usages to add to the certificate.
-	KeyUsages []string `json:"keyUsages" yaml:"key_usages"`
+	KeyUsages []string `json:"keyUsage" yaml:"key_usage"`
 
 	// An array of extended key usages to add to the certificate.
-	ExtendedKeyUsages []string `json:"extendedKeyUsages" yaml:"extended_key_usages"`
+	ExtendedKeyUsages []string `json:"extendedKeyUsage" yaml:"extended_key_usage"`
 
 	// An array of certificate policies to add to the certificate.
 	CertificatePolicies []string `json:"certificatePolicies" yaml:"certificate_policies"`
@@ -188,16 +203,4 @@ type SubjectAlternativeNameConfiguration struct {
 
 	// A list of IP addresses to add to the certificate.
 	IPAddresses []string `json:"ipAddresses" yaml:"ip_addresses"`
-
-	// A list of URIs to add to the certificate.
-	URIs []string `json:"uris" yaml:"uris"`
-
-	// A list of directory names to add to the certificate.
-	DirectoryNames []string `json:"directoryNames" yaml:"directory_names"`
-
-	// A list of registered IDs to add to the certificate.
-	RegisteredIDs []string `json:"registeredIDs" yaml:"registered_ids"`
-
-	// A list of other names to add to the certificate.
-	OtherNames []string `json:"otherNames" yaml:"other_names"`
 }

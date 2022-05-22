@@ -31,7 +31,7 @@ func loadIntermediateCertificateAuthority(configFilePath string, intCert *config
 		return
 	}
 
-	fmt.Printf("Loading intermediate certificate authority: %s\n", intCertName)
+	fmt.Printf("Loading intermediate certificate: %s\n", intCertName)
 
 	if err != nil {
 		panic(err)
@@ -39,37 +39,46 @@ func loadIntermediateCertificateAuthority(configFilePath string, intCert *config
 
 	// Check if the required fields are empty
 	if caChainName == "" {
-		panic("The ca chain certificate authority name is empty")
+		panic("The ca chain certificate name cannot be empty")
 	}
 
 	// Chain cannot be the same as the int cert if it's not a Root CA
 	if intCertName == caChainName {
 		if !intCert.IsLastChainCertificateRootCertificateAuthority {
-			panic("The ca chain certificate authority name cannot be the same as the int certificate authority name if it's not a Root CA")
+			panic("The chain certificate name cannot be the same as the intermediate certificate name if it's not a root certificate authority")
 		}
 	}
 
 	if caChainPassword == "" {
-		panic("The ca chain certificate authority password is empty")
+		panic("The chain certificate password cannot be empty")
 	}
 
 	// Check if password is less than 8 characters
-	if len(caChainPassword) < 8 {
-		panic("The root certificate authority password is less than 8 characters")
+	if len(caChainPassword) < 4 {
+		panic("The chain certificate password cannot be less than 4 characters")
 	}
 
 	if intCertName == "" {
-		panic("The intermediate certificate authority name is empty")
+		panic("The intermediate certificate name cannot be empty")
 	}
 
 	// Check if password is less than 8 characters
-	if len(intCertPassword) < 8 {
-		panic("The intermediate certificate authority password is less than 8 characters")
+	if len(intCertPassword) < 4 {
+		panic("The intermediate certificate password cannot be less than 4 characters")
 	}
 
 	// Check if password is less than 8 characters
-	if len(intCertPfxPassword) < 8 {
-		panic("The intermediate certificate authority pfx password is less than 8 characters")
+	if len(intCertPfxPassword) < 4 {
+		panic("The intermediate certificate PFX password cannot be less than 4 characters")
+	}
+
+	err = helper.CheckCertificateName(caChainName)
+	if err != nil {
+		panic(err)
+	}
+	err = helper.CheckCertificateName(intCertName)
+	if err != nil {
+		panic(err)
 	}
 
 	// Section for generating the ca chain certificate if it's in the config and further down in the code
@@ -91,14 +100,53 @@ func loadIntermediateCertificateAuthority(configFilePath string, intCert *config
 	keepCertificateRequestFile := helper.Ternary(intCert.KeepCertificateRequestFile, "YES", "NO").(string)
 	isLastChainRootCa := helper.Ternary(intCert.IsLastChainCertificateRootCertificateAuthority, "YES", "NO").(string)
 
+	keyLength := intCert.PrivateKeySize
+
+	// If the key length is not set, set it to 2048
+	if keyLength == 0 {
+		keyLength = 2048
+	}
+
+	// If the key length is not 1024, 2048 or 4096, error out
+	if keyLength != 1024 && keyLength != 2048 && keyLength != 4096 {
+		panic("The key length must be 1024, 2048 or 4096")
+	}
+
+	expirationInDays := intCert.ValidityPeriod
+
+	// If the expiration in days is not set, set it to 4086
+	if expirationInDays == 0 {
+		expirationInDays = 4086
+	}
+
+	// If the expiration in days is less than 0, error out
+	if expirationInDays < 0 {
+		panic("The expiration in days must be greater than or equal to 0")
+	}
+
 	configuration.GenerateIntermediateCertificateConfigurationFileIfNotExists(intCert)
 
+	caChainPasswordFilename, err := helper.WritePasswordFile("chain", caChainName, "normal", caChainPassword)
+	if err != nil {
+		panic(err)
+	}
+	intCertPasswordFilename, err := helper.WritePasswordFile("intermediate", intCertName, "normal", intCertPassword)
+	if err != nil {
+		panic(err)
+	}
+	intCertPfxPasswordFilename, err := helper.WritePasswordFile("intermediate", intCertName, "pfx", intCertPfxPassword)
+	if err != nil {
+		panic(err)
+	}
+
 	// Get command text
-	command := fmt.Sprintf("./ssl/generate-intermediate-ca.sh %s %s %s %s %s %s %s %s %s", isLastChainRootCa, caChainName, caChainPassword, intCertName, intCertPassword, intCertPfxPassword, shouldInsertIntoTrustedStore, skipDhParam, keepCertificateRequestFile)
+	command := fmt.Sprintf("./ssl/generate-intermediate-ca.sh %s @%s @%s %s @%s %s %s %s %s %d %d", intCertName, intCertPasswordFilename, intCertPfxPasswordFilename, caChainName, caChainPasswordFilename, isLastChainRootCa, shouldInsertIntoTrustedStore, skipDhParam, keepCertificateRequestFile, expirationInDays, keyLength)
 
 	// Execute the command
 	helper.ExecuteRawCommand(command)
 
 	// Add the root certificate to the map
 	loadedIntCerts[caChainName] = intCert
+
+	defer helper.DeleteTmpPasswords([]string{caChainPasswordFilename, intCertPasswordFilename, intCertPfxPasswordFilename})
 }

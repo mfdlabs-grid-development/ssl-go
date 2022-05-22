@@ -16,19 +16,25 @@ func ReplaceEnvironmentExpression(input string) string {
 		return input
 	}
 
+	// Trim the input
+	input = strings.TrimSpace(input)
+
+	// Remove spaces from the input
+	input = strings.Replace(input, " ", "", -1)
+
 	// Check if the input contains the special var
-	if !strings.Contains(input, "${{ ") {
+	if !strings.Contains(input, "${{") {
 		return input
 	}
 
 	// Split the input into parts
-	parts := strings.Split(input, "${{ ")
+	parts := strings.Split(input, "${{")
 
 	// We now need to get the part in the middle of ${{ }}
 	otherPart := parts[1]
 
 	// Split the middle part into parts
-	middleParts := strings.Split(otherPart, " }}")
+	middleParts := strings.Split(otherPart, "}}")
 
 	// Get the name of the environment variable
 	middlePart := middleParts[0]
@@ -47,11 +53,12 @@ func ReplaceEnvironmentExpression(input string) string {
 	}
 
 	// Get the env var value
-	envVarValue := os.Getenv(envVarName)
+	envVarValue, isPresent := os.LookupEnv(envVarName)
 
 	// Check if the env var value is empty, if so, return it but warn the user
-	if envVarValue == "" {
-		fmt.Printf("WARNING: The environment variable %s is empty, the value will be replaced with an empty string\n", envVarName)
+	if !isPresent {
+		fmt.Printf("Warning: Unkown environment variable: %s\n", envVarName)
+		return ""
 	}
 
 	// Replace the env var value with the env var name

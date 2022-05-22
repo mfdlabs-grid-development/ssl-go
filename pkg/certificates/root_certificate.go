@@ -29,7 +29,7 @@ func loadRootCertificateAuthority(configFilePath string, rootCert *configuration
 		return
 	}
 
-	fmt.Printf("Loading root certificate authority: %s\n", rootCaName)
+	fmt.Printf("Loading root certificate: %s\n", rootCaName)
 
 	if err != nil {
 		panic(err)
@@ -37,40 +37,79 @@ func loadRootCertificateAuthority(configFilePath string, rootCert *configuration
 
 	// Check if the required fields are empty
 	if rootCaName == "" {
-		panic("The root certificate authority name is empty")
+		panic("The root certificate name cannot be empty")
 	}
 
 	if rootCaPassword == "" {
-		panic("The root certificate authority password is empty")
+		panic("The root certificate password cannot be empty")
 	}
 
 	if rootCaPfxPassword == "" {
-		panic("The root certificate authority pfx password is empty")
+		panic("The root certificate PFX password cannot be empty")
 	}
 
 	// Check if password is less than 8 characters
-	if len(rootCaPassword) < 8 {
-		panic("The root certificate authority password is less than 8 characters")
+	if len(rootCaPassword) < 4 {
+		panic("The root certificate password cannot be less than 4 characters")
 	}
 
 	// Check if password is less than 8 characters
-	if len(rootCaPfxPassword) < 8 {
-		panic("The root certificate authority pfx password is less than 8 characters")
+	if len(rootCaPfxPassword) < 4 {
+		panic("The root certificate PFX password cannot be less than 4 characters")
+	}
+
+	err = helper.CheckCertificateName(rootCaName)
+	if err != nil {
+		panic(err)
 	}
 
 	// Get string of if the cert should be inserted into the trust store
 	shouldInsertIntoTrustedStore := helper.Ternary(rootCert.ShouldInsertIntoTrustedStore, "YES", "NO").(string)
 	skipDhParam := helper.Ternary(rootCert.GenerateDHParameters, "NO", "YES").(string)
-	hasExtensionFile := helper.Ternary(rootCert.HasExtensionFile, "YES", "NO").(string)
+
+	keyLength := rootCert.PrivateKeySize
+
+	// If the key length is not set, set it to 2048
+	if keyLength == 0 {
+		keyLength = 2048
+	}
+
+	// If the key length is not 1024, 2048 or 4096, error out
+	if keyLength != 1024 && keyLength != 2048 && keyLength != 4096 {
+		panic("The key length must be 1024, 2048 or 4096")
+	}
+
+	expirationInDays := rootCert.ValidityPeriod
+
+	// If the expiration in days is not set, set it to 4086
+	if expirationInDays == 0 {
+		expirationInDays = 4086
+	}
+
+	// If the expiration in days is less than 0, error out
+	if expirationInDays < 0 {
+		panic("The expiration in days must be greater than or equal to 0")
+	}
 
 	configuration.GenerateRootCertificateConfigurationFileIfNotExists(rootCert)
 
+	rootCaPasswordFilename, err := helper.WritePasswordFile("root", rootCaName, "normal", rootCaPassword)
+	if err != nil {
+		panic(err)
+	}
+	rootCaPfxPasswordFilename, err := helper.WritePasswordFile("root", rootCaName, "pfx", rootCaPfxPassword)
+	if err != nil {
+		panic(err)
+	}
+
 	// Get command text
-	command := fmt.Sprintf("./ssl/generate-root-ca.sh %s %s %s %s %s %s", rootCaName, rootCaPassword, rootCaPfxPassword, shouldInsertIntoTrustedStore, skipDhParam, hasExtensionFile)
+	command := fmt.Sprintf("./ssl/generate-root-ca.sh %s @%s @%s %s %s YES %d %d", rootCaName, rootCaPasswordFilename, rootCaPfxPasswordFilename, shouldInsertIntoTrustedStore, skipDhParam, expirationInDays, keyLength)
 
 	// Execute the command
 	helper.ExecuteRawCommand(command)
 
 	// Add the root certificate to the map
 	loadedRootCerts[rootCaName] = rootCert
+
+	defer helper.DeleteTmpPasswords([]string{rootCaPasswordFilename, rootCaPfxPasswordFilename})
 }
